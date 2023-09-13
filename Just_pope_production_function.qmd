@@ -1,0 +1,495 @@
+---
+title: "Does early planting of wheat affect mean yield and risk? Just-Pope residual based and Antle moments production risk analysis"
+format: html
+self-contained: true
+author: Maxwell Mkondiwa
+editor: visual
+toc: true
+toc-location: left
+number-sections: true
+---
+
+# Introduction
+
+There is ample evidence that early sowing of long duration wheat varieties increases yieCSISA_KVKestim and profitability of wheat production in EIGP. However, there are concerns that it may affect the riskiness of the production system as well as alter the effectiveness of other inputs like fertilizers and irrigation. We use the residual based and moments-based approaches to econometric assessment of productivity and risk of different sowing date strategies and variety maturity class. We also investigate the complementary and substitution patterns between these inputs and other production inputs including weather.
+
+This notebook provides a reproducible workflow for Just-Pope production function and moments based approach to production risk analysis.
+
+We use data collected under the CSISA-KVK agronomic trials.
+
+```{r}
+CSISA_KVKestim=read.csv("CSISA_KVK_wheat_public_cleaned.csv")
+
+#load("CSISA_KVK_Public_Workspace.RData")
+
+table(CSISA_KVKestim$SowingSchedule) 
+
+#CSISA_KVKestim$SowingSchedule=ordered(CSISA_KVKestim$SowingSchedule,levels=c("T5","T4","T3","T2","T1"))
+
+#Create dummies for some categorical variables
+library(fastDummies)
+CSISA_KVKestim <- fastDummies::dummy_cols(CSISA_KVKestim, select_columns =c("SowingSchedule","VarietyClass","SoilType","CropEstablishment","Year","District"))
+
+# Make calculations on nitrogen, phosphurus, potassium applied 
+
+## Nitrogen
+CSISA_KVKestim$GradeNPKN[CSISA_KVKestim$GradeNPK=="10.26.26"]=0.10
+CSISA_KVKestim$GradeNPKN[CSISA_KVKestim$GradeNPK %in% c("12.32.16", "12:32:16", "12:32:16 PM")] <- 0.12
+CSISA_KVKestim$GradeNPKN[CSISA_KVKestim$GradeNPK == "14:35:14"] <- 0.14
+CSISA_KVKestim$GradeNPKN[CSISA_KVKestim$GradeNPK == "18:46:00"] <- 0.18
+CSISA_KVKestim$GradeNPKN[CSISA_KVKestim$GradeNPK == "20.20.0.13"] <- 0.20
+
+## Phosphorus
+CSISA_KVKestim$GradeNPKP[CSISA_KVKestim$GradeNPK == "10.26.26"] <- 0.26
+CSISA_KVKestim$GradeNPKP[CSISA_KVKestim$GradeNPK %in% c("12.32.16", "12:32:16", "12:32:16 PM")] <- 0.32
+CSISA_KVKestim$GradeNPKP[CSISA_KVKestim$GradeNPK == "14:35:14"] <- 0.35
+CSISA_KVKestim$GradeNPKP[CSISA_KVKestim$GradeNPK == "18:46:00"] <- 0.46
+CSISA_KVKestim$GradeNPKP[CSISA_KVKestim$GradeNPK == "20.20.0.13"] <- 0.20
+
+# Potassium
+CSISA_KVKestim$GradeNPKK[CSISA_KVKestim$GradeNPK == "10.26.26"] <- 0.26
+CSISA_KVKestim$GradeNPKK[CSISA_KVKestim$GradeNPK %in% c("12.32.16", "12:32:16", "12:32:16 PM")] <- 0.16
+CSISA_KVKestim$GradeNPKK[CSISA_KVKestim$GradeNPK == "14:35:14"] <- 0.14
+CSISA_KVKestim$GradeNPKK[CSISA_KVKestim$GradeNPK == "18:46:00"] <- 0
+CSISA_KVKestim$GradeNPKK[CSISA_KVKestim$GradeNPK == "20.20.0.13"] <- 0.13
+
+# # 
+# [21] "BasalDAP"
+#  [22] "BasalNPK"
+#  [23] "GradeNPK"
+#  [24] "BasalMOP"
+#  [25] "BasalZn"
+#  [26] "Split1Urea"
+#  [27] "Split2Urea"
+#  [28] "Split3Urea"
+
+# Nutrient Content ----------------------
+# Taken from Cedrez, Chamberlain, Guo and Hijmans, p3
+### N -----------------------------------
+# CSISA_KVKestim$BasalDAPN=CSISA_KVKestim$BasalDAP*0.18 
+# CSISA_KVKestim$Split1UreaN=CSISA_KVKestim$Split1Urea*0.46
+# CSISA_KVKestim$Split2UreaN=CSISA_KVKestim$Split2Urea*0.46
+# CSISA_KVKestim$Split3UreaN=CSISA_KVKestim$Split3Urea*0.46
+# 
+# CSISA_KVKestim$BasalNPKN=CSISA_KVKestim$BasalNPK*CSISA_KVKestim$GradeNPKN
+# 
+# CSISA_KVKestim$N=rowSums(CSISA_KVKestim[,c("BasalDAPN","Split1UreaN","Split2UreaN","Split3UreaN","BasalNPKN")],na.rm = TRUE)
+# 
+# CSISA_KVKestim$Nperha=CSISA_KVKestim$N/CSISA_KVKestim$C.q306_cropLarestAreaHA
+# CSISA_KVKestim$NperhaSq=CSISA_KVKestim$Nperha*CSISA_KVKestim$Nperha
+# 
+# ### P ------------------------------------
+# CSISA_KVKestim$F.totAmtDAPP=CSISA_KVKestim$F.totAmtDAP*0.46
+# CSISA_KVKestim$F.totAmtUreaP=CSISA_KVKestim$F.totAmtUrea*0
+# CSISA_KVKestim$F.totAmtNPKP=CSISA_KVKestim$F.totAmtNPK*CSISA_KVKestim$F.q51071_gradeNPKP
+# 
+# 
+# CSISA_KVKestim$P2O5=rowSums(CSISA_KVKestim[,c("F.totAmtDAPP","F.totAmtUreaP","F.totAmtNPKP","F.totAmtTSPP","F.totAmtSSPP","F.totAmtNPKSP")],na.rm = TRUE)
+# CSISA_KVKestim$P2O5perha=CSISA_KVKestim$P2O5/CSISA_KVKestim$C.q306_cropLarestAreaHA
+# 
+# 
+# 
+# # Get CHIRPS temperature and rainfall data(
+# 
+# # install.packages("remotes")
+# # remotes::install_github("environmentalinformatics-marburg/heavyRain")
+# 
+# library("chirps")
+# library("terra")
+# 
+# # Case 1: return as a data.frame
+# dates <- c("2017-12-15","2017-12-31")
+# lonlat <- data.frame(lon = c(-55.0281,-54.9857), lat = c(-2.8094, -2.8756))
+# 
+# r1 <- get_chirps(lonlat, dates, server = "CHC")
+
+```
+
+## Graphics
+
+```{r,message = FALSE}
+# Bar graphs showing percentage of farmers adopting these practices  
+
+library(tidyverse) 
+library(ggplot2)  
+
+bar_chart=function(dat,var){   dat|>     drop_na({{var}})|>     mutate({{var}}:=factor({{var}})|>fct_infreq())|>     ggplot()+     geom_bar(aes(y={{var}}),fill="dodgerblue4")+     theme_minimal(base_size = 16) }   
+
+sow_plot=bar_chart(CSISA_KVKestim,SowingSchedule)+labs(y="Sowing dates") 
+ 
+sow_plot
+
+library(ggpubr) 
+library(tidyverse) 
+
+#Sowing dates 
+
+SowingDate_Options_Errorplot=   CSISA_KVKestim%>%   
+  drop_na(SowingSchedule) %>%   
+  ggerrorplot(x = "SowingSchedule", y = "GrainYield",add = "mean", error.plot = "errorbar", color="steelblue", ggtheme=theme_bw())+   
+  labs(x="Sowing date options",y="Wheat yield (t/ha)")+   
+  theme_bw(base_size = 16)+
+  coord_flip()  
+SowingDate_Options_Errorplot 
+
+
+
+
+```
+
+## Descriptives
+
+```{r,message = FALSE}
+
+library(fBasics)
+
+summ_stats <- fBasics::basicStats(CSISA_KVKestim[,c("GrainYield","VarietyClass_LDV","SoilType_Heavy","SoilType_Medium","SoilType_Low","CropEstablishment_CT","CropEstablishment_CT-line","CropEstablishment_ZT")]) 
+
+summ_stats <- as.data.frame(t(summ_stats)) 
+
+# Rename some of the columns for convenience 
+
+summ_stats <- summ_stats[c("Mean", "Stdev", "Minimum", "1. Quartile", "Median",  "3. Quartile", "Maximum")] %>%   
+rename("Lower quartile" = '1. Quartile', "Upper quartile"= "3. Quartile")  
+
+summ_stats 
+
+
+
+```
+
+# Just-pope production function
+
+Just and Pope (1979) proposed the a three step estimation framework of the effect of inputs on mean yield and risk. The first step involves estimating a production function of any functional form (e.g., quadratic, cobb-douglas) using OLS. We then collect the residuals, square them and put them in a logarithm. We use this log (res\^2) as dependent variable in the second stage estimation. This is the variance model. In the final step, we use the inverse of the exponential of the fitted values from the second stage as weights in a weighted least squares (WLS). This three step procedure is also called feasible generalized least sqaures (FGLS) estimation.
+
+```{r}
+ols = lm(GrainYield ~ SowingSchedule+VarietyClass_LDV + SeedRate + CropEstablishment + IrrigationNumber + SoilType + LandType + as.factor(Year)+ District, data = CSISA_KVKestim)
+summary(ols)
+
+# Breusch pagan test for heteroskedasticity
+library(lmtest)
+bptest(ols)
+
+
+CSISA_KVKestim$ols_u=ols$residuals
+
+CSISA_KVKestim$log_ols_u_sqrd=log((CSISA_KVKestim$ols_u)^2)
+
+ols_log_variance = lm(log_ols_u_sqrd ~ SowingSchedule + VarietyClass_LDV + SeedRate + CropEstablishment + IrrigationNumber + SoilType + LandType + as.factor(Year) + District, data = CSISA_KVKestim)
+summary(ols_log_variance)
+
+# fitted values
+CSISA_KVKestim$g_hat=fitted(ols_log_variance)
+# Exponential of fitted values
+CSISA_KVKestim$h_hat=exp(CSISA_KVKestim$g_hat)
+# create weights
+CSISA_KVKestim$w=1/CSISA_KVKestim$h_hat
+
+# FGLS
+fgls = lm(GrainYield ~ SowingSchedule +VarietyClass_LDV + SeedRate + CropEstablishment + IrrigationNumber + SoilType + LandType +as.factor(Year)+ District, data = CSISA_KVKestim, weight = w)
+summary(fgls)
+
+library(stargazer)
+stargazer(ols, fgls,ols_log_variance,
+          column.labels=c("OLS","FGLS","ols_log_variance"),
+          type="text",out ="JP_results.html",
+          keep.stat=c("n","rsq"))
+
+library(modelsummary)
+list_models = list(ols,fgls, ols_log_variance)
+
+modelplot(list_models)
+
+modelsummary(list_models, stars=TRUE,output="tables/JP_results.docx")
+
+
+```
+
+# Moment approach
+
+Antle (1983) extended the Just-Pope algorithm by including skewness as a measure of downside risk. The reason for the extension was the the Just-Pope approach considers variance as a measure of risk but variance doesnot distinguish unexpected bad events and good events. Skewness allows characterization of the unexpected downside effects.
+
+```{r}
+ols_mean=lm(GrainYield ~ SowingSchedule+VarietyClass_LDV + SeedRate + CropEstablishment + IrrigationNumber + SoilType + LandType + as.factor(Year)+ District, data = CSISA_KVKestim)
+summary(ols_mean)
+
+ols_variance=lm(ols_u^2~SowingSchedule+VarietyClass_LDV + SeedRate + CropEstablishment + IrrigationNumber + SoilType + LandType + as.factor(Year)+ District, data = CSISA_KVKestim)
+summary(ols_variance)
+
+ols_skewness=lm(ols_u^3~SowingSchedule+VarietyClass_LDV + SeedRate + CropEstablishment + IrrigationNumber + SoilType + LandType + as.factor(Year)+ District, data = CSISA_KVKestim)
+summary(ols_skewness)
+ 
+ 
+ols_kurtosis=lm(ols_u^4~SowingSchedule+VarietyClass_LDV + SeedRate + CropEstablishment + IrrigationNumber + SoilType + LandType + as.factor(Year)+ District, data = CSISA_KVKestim)
+summary(ols_kurtosis)
+
+
+library(stargazer)
+stargazer(ols_mean, ols_variance,ols_skewness,ols_kurtosis,
+          column.labels=c("Mean","Variance","Skewness","Kurtosis"),
+          type="text", out ="Moments_results.html",
+          keep.stat=c("n","rsq"))
+
+library(modelsummary)
+list_models_moments = list(ols_mean, ols_variance,ols_skewness,ols_kurtosis)
+
+modelsummary(list_models_moments,stars=TRUE)
+
+modelsummary(list_models_moments, stars=TRUE,output="tables/Moments_results.docx")
+
+```
+
+# Addressing endogeneity using Lewbel (2012) method
+
+When using observational data, there may be endogeneity associated with the choice of the technology.
+
+```{r}
+library(REndo)
+
+hetEr <- hetErrorsIV(GrainYield~SowingSchedule_T1+SowingSchedule_T2+SowingSchedule_T3+SowingSchedule_T4+IrrigationNumber + SeedRate+VarietyClass_LDV |SowingSchedule_T1| IIV(SowingSchedule_T2,SowingSchedule_T3,SowingSchedule_T4,IrrigationNumber,SeedRate,VarietyClass_LDV ), data = CSISA_KVKestim)
+
+summary(hetEr)
+
+library(modelsummary)
+
+modelplot(hetEr)
+
+```
+
+# Spatial JP and Moments models
+
+Risk exposure is usually spatially dependent. Farms close together in space are more likely to face simular exposures than farmers away. In addition, one may want to predict out of sample beyond locations where the agronomic trials were conducted. We show how to use spatially varying coefficient models to develop a surface of the effectiveness of each of the sowing date strategies and variety classes across Bihar. This approach allows us to recommend, with associated measures of uncertainty sowing dates and variety classes that maximize yieCSISA_KVKestim, minimize variance, skewness and kurtosis.
+
+```{r}
+# Spatially varying coefficient model -----------------------------------------
+# library(spBayes)
+# coords=dplyr::select(CSISA_KVKestim,Longitude,Latitude)
+# coords=as.matrix(coords)
+
+# library(geoR)
+# coords=jitterDupCoords(coords,min=2,max=10)
+
+# nrow(coords)
+# nrow(tau.hat_weeding)
+
+# n.samples <- 1000 
+
+# t1 <- Sys.time()
+
+# r <-6
+# n.ltr <- r*(r+1)/2
+
+# priors <- list("phi.Unif"=list(rep(1,r), rep(10,r)), "K.IW"=list(r, diag(rep(1,r))), "tau.sq.IG"=c(2, 1))
+
+# starting <- list("phi"=rep(3/0.5,r), "A"=rep(1,n.ltr), "tau.sq"=1) 
+
+# tuning <- list("phi"=rep(0.1,r), "A"=rep(0.01, n.ltr), "tau.sq"=0.01)
+
+
+# cf.weeding.spVC2 <- spBayes::spSVC(GrainYield~SowingSchedule_T1+SowingSchedule_T2+SowingSchedule_T3+SowingSchedule_T4+VarietyClass_LDV+IrrigationNumber + SeedRate, data=CSISA_KVKestim,coords=coords,
+#                                   starting= starting,svc.cols=c(1,2,3,4,5,6),
+#                                   tuning=tuning,
+#                                   priors=priors,
+#                                   cov.model="exponential",n.samples=n.samples,
+#                                   n.omp.threads=15)
+
+
+# t2 <- Sys.time()
+# t2 - t1
+
+# library(coda)
+# round(summary(mcmc(cf.weeding.spVC2 $p.theta.samples))$quantiles,3)
+
+# burn.in <- floor(0.75*n.samples) 
+
+# cf.mean.sp.r <- spRecover(cf.weeding.spVC2 , start=burn.in,n.omp.threads=15)
+
+# round(summary(cf.mean.sp.r$p.beta.recover.samples)$quantiles[,c(3,1,5)],2)
+
+# round(summary(cf.mean.sp.r$p.theta.recover.samples)$quantiles[,c(3,1,5)],2)
+
+# tilde.beta.0=apply(cf.mean.sp.r$p.tilde.beta.recover.samples[["tilde.beta.(Intercept)"]],1,median)
+
+# tilde.beta.t1=apply(cf.mean.sp.r$p.tilde.beta.recover.samples[["tilde.beta.t1"]],1,median)
+
+
+
+# library(terra)
+# library(stars)
+# library(raster)
+
+# CSISA_KVKestim_sp= SpatialPointsDataFrame(cbind(CSISA_KVKestim$Longitude,CSISA_KVKestim$Latitude),data=CSISA_KVKestim,proj4string=CRS("+proj=longlat +datum=WGS84"))
+
+# plot(CSISA_KVKestim_sp)
+
+# library(geodata)
+# India=gadm(country="IND", level=1, path="temp")
+# plot(India)
+# India_Bihar=subset(India,India$NAME_1=="Bihar")
+# plot(India_Bihar)
+
+# library(sf)
+# India_Bihar=st_as_sf(India_Bihar)
+# India_Bihar=as_Spatial(India_Bihar)
+# # Inverse distance approach -----
+# library(gstat) # Use gstat's idw routine
+# library(sp)    # Used for the spsample function
+# library(tmap)
+
+# wgs84.prj=CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+# India_Bihar_wgs84.prj= spTransform(India_Bihar,wgs84.prj)
+
+# CSISA_KVKestim_sp@bbox <- India_Bihar_wgs84.prj@bbox 
+
+# grd <- as.data.frame(spsample(CSISA_KVKestim_sp, "regular", n=10000))
+
+# names(grd)       <- c("X", "Y")
+# coordinates(grd) <- c("X", "Y")
+# gridded(grd)     <- TRUE  # Create SpatialPixel object
+# fullgrid(grd)    <- TRUE  # Create SpatialGrid object
+# plot(grd)
+# proj4string(CSISA_KVKestim_sp) <- proj4string(CSISA_KVKestim_sp) # Temp fix until new proj env is adopted
+# proj4string(grd) <- proj4string(CSISA_KVKestim_sp)
+
+# library(spBayes)
+
+# India_Bihar_wgs84.prjpoly <- India_Bihar_wgs84.prj@polygons[[1]]@Polygons[[1]]@coords 
+# India_Bihar_wgs84.prjpoly <- as.matrix(India_Bihar_wgs84.prjpoly)
+
+# pred.coords <- SpatialPoints(grd)@coords 
+
+# pred.covars <- as.matrix(rep(1, nrow(pred.coords)))
+
+# cf.mean.sp.pred <- spPredict(cf.mean.sp.r,pred.coords=pred.coords,
+#                                     pred.covars=pred.covars,n.omp.threads=15, thin=25, joint=TRUE)
+
+# cf.mean.sp.pred.pred.mu = apply(cf.mean.sp.pred$p.y.predictive.samples,1,mean)
+# cf.mean.sp.pred.sd = apply(cf.mean.sp.pred$p.y.predictive.samples,1,sd)
+
+# x.res=100
+# library(MBA)
+# surf <- mba.surf(cbind(coords, tau.hat.cf_irrign), no.X=x.res, no.Y=x.res,extend=TRUE, sp=TRUE)$xyz.est
+# surf <- as.image.SpatialGridDataFrame(surf) 
+# z.lim <- range(surf[["z"]], na.rm=TRUE) 
+# pred.grid <- as.data.frame(list(pred.coords,pred.mu=cf.mean.sp.pred.pred.mu,pred.sd=cf.mean.sp.pred.sd))
+
+# coordinates(pred.grid) = c("X", "Y") 
+# gridded(pred.grid) <- TRUE 
+# pred.mu.image <- as.image.SpatialGridDataFrame(pred.grid["pred.mu"])
+# pred.sd.image <- as.image.SpatialGridDataFrame(pred.grid["pred.sd"])
+
+# library(fieCSISA_KVKestim)
+# image.plot(surf, axes=TRUE, zlim=z.lim, col=tim.colors(25),xaxs = "r", yaxs = "r",main="Yield gain to two means")
+# plot(India_State_Boundary_Bihar_wgs84.prj, add=TRUE) 
+
+
+
+# png("figures/BayesianKriggedMeanValue_irrign2_mu.png")
+# #par(mfrow=c(1,2)) 
+# image.plot(pred.mu.image,xaxs = "r", yaxs = "r",main="Mean predicted yield gain to two means")
+# plot(India_State_Boundary_Bihar_wgs84.prj, add=TRUE)
+# dev.off()
+
+# png("figures/BayesianKriggedMeanValue_irrign2_sd.png")
+# image.plot(pred.sd.image,xaxs = "r", yaxs = "r",main="Sd of predicted yield gain to two means")
+# plot(India_State_Boundary_Bihar_wgs84.prj, add=TRUE)
+# dev.off()
+
+# #pred.mu.image=crop(pred.mu.image,India_State_Boundary_Bihar_wgs84.prj)
+
+# writeGDAL(pred.grid["pred.mu"], "figures/mean2.tau.pred.mu.image.tif") 
+# writeGDAL(pred.grid["pred.sd"], "figures/mean2.tau.pred.sd.image.tif")
+
+
+# library(rasterVis)
+# pred.mu_irrign2=pred.grid["pred.mu"]
+# pred.mu_irrign2=raster(pred.mu_irrign2)
+# pred.mu_irrign2=mask(pred.mu_irrign2,India_State_Boundary_Bihar_wgs84.prj)
+# pred.mu_irrign2_plot=levelplot(pred.mu_irrign2,par.settings=RdBuTheme())
+# pred.mu_irrign2_plot
+
+# png("figures/BayesianKriggedMeanValue_Levelplot_irrign2_mu.png")
+# pred.mu_irrign2_plot
+# dev.off()
+
+# pred.sd_irrign2=pred.grid["pred.sd"]
+# pred.sd_irrign2=raster(pred.sd_irrign2)
+# pred.sd_irrign2=mask(pred.sd_irrign2,India_State_Boundary_Bihar_wgs84.prj)
+# pred.sd_irrign2_plot=levelplot(pred.sd_irrign2,par.settings=RdBuTheme())
+# pred.sd_irrign2_plot
+
+# png("figures/BayesianKriggedMeanValue_Levelplot_irrign2_sd.png")
+# pred.sd_irrign2_plot
+# dev.off()
+
+# writeRaster(pred.mu_irrign2, "figures/mean2.tau.pred.mu.image.tif",overwrite=TRUE) 
+# writeRaster(pred.sd_irrign2, "figures/mean2.tau.pred.sd.image.tif",overwrite=TRUE)
+
+# save(cf.mean.sp.pred, file = "cf.mean.sp.pred.RData")
+# # predict and probability ------------------------------------------------
+
+# cf.mean.sp.pred.pred.prob=rowSums(cf.mean.sp.pred$p.y.predictive.samples>0)/251
+# cf.mean.sp.pred.pred.prob50kg=rowSums(cf.mean.sp.pred$p.y.predictive.samples>0.05)/251
+# cf.mean.sp.pred.pred.prob100kg=rowSums(cf.mean.sp.pred$p.y.predictive.samples>0.1)/251
+# cf.mean.sp.pred.pred.prob200kg=rowSums(cf.mean.sp.pred$p.y.predictive.samples>0.2)/251
+# cf.mean.sp.pred.pred.prob300kg=rowSums(cf.mean.sp.pred$p.y.predictive.samples>0.3)/251
+# cf.mean.sp.pred.pred.prob400kg=rowSums(cf.mean.sp.pred$p.y.predictive.samples>0.4)/251
+
+
+# library(MBA)
+# surf <- mba.surf(cbind(coords, tau.hat.cf_irrign), no.X=x.res, no.Y=x.res,extend=TRUE, sp=TRUE)$xyz.est
+# #surf <- surf [!is.na(overlay(surf, India_State_Boundary_Bihar_wgs84.prj)),] 
+# surf <- as.image.SpatialGridDataFrame(surf) 
+# z.lim <- range(surf[["z"]], na.rm=TRUE) 
+
+# pred.grid <- as.data.frame(list(pred.coords,pred.mu=cf.mean.sp.pred.pred.mu,pred.sd=cf.mean.sp.pred.sd,
+#                                 pred.prob=cf.mean.sp.pred.pred.prob,pred.prob50kg=cf.mean.sp.pred.pred.prob50kg,
+#                                 pred.prob100kg=cf.mean.sp.pred.pred.prob100kg,pred.prob200kg=cf.mean.sp.pred.pred.prob200kg,
+#                                 pred.prob300kg=cf.mean.sp.pred.pred.prob300kg,pred.prob400kg=cf.mean.sp.pred.pred.prob400kg))
+
+# coordinates(pred.grid) = c("X", "Y") 
+# gridded(pred.grid) <- TRUE 
+
+# writeGDAL(pred.grid["pred.prob"], "figures/mean.tau.pred.prob.image.tif")
+# writeGDAL(pred.grid["pred.prob50kg"], "figures/mean.tau.pred.prob50kg.image.tif")
+# writeGDAL(pred.grid["pred.prob100kg"], "figures/mean.tau.pred.prob100kg.image.tif")
+# writeGDAL(pred.grid["pred.prob200kg"], "figures/mean.tau.pred.prob200kg.image.tif")
+# writeGDAL(pred.grid["pred.prob300kg"], "figures/mean.tau.pred.prob300kg.image.tif")
+# writeGDAL(pred.grid["pred.prob400kg"], "figures/mean.tau.pred.prob400kg.image.tif")
+
+
+
+# library(rasterVis)
+# pred.prob100kg=pred.grid["pred.prob100kg"]
+# pred.prob100kg=raster(pred.prob100kg)
+# levelplot(pred.prob100kg,par.settings=RdBuTheme())
+
+# png("figures/BayesianKriggedMeanValue_plus_probability_100kg_ha_irrign2.png")
+# levelplot(pred.prob100kg,par.settings=RdBuTheme())
+# dev.off()
+
+
+
+```
+
+# Certainty equivalent and risk premium
+
+```{r}
+
+
+
+
+
+
+
+```
+
+# References
+
+Antle, J.M. 1983. "Testing the stochastic structure of production: A flexible moment-based approach". Journal of Business and Economic Statistics 1(3): 192-201. Doi: 10.1080/07350015.1983.10509339.
+
+Antle, J.M. 2010. "Asymmetry, partial moments and production risk." American Journal of Agricultural Economics 92(5): . Doi: https://doi.org/10.1093/ajae/aaq077.
+
+Di Falco, S., Chavas, J., and Smale, M. 2007. "Farmer management of production risk on degraded lands: the role of wheat variety diversity in the Tigray region, Ethiopia." Agricultural Economics 36: 147-156. Doi: https://doi.org/10.1111/j.1574-0862.2007.00194.x.
+
+Di Falco, S., and Chavas, J. 2009. "On crop biodiversity, risk exposure, and food security in the highlands of Ethiopia". American Journal of Agricultural Economics 91(3): 599-611. Doi: https://doi.org/10.1111/j.1467-8276.2009.01265.x.
