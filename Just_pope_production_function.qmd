@@ -1,12 +1,21 @@
 ---
 title: "Does early planting of wheat affect mean yield and risk? Just-Pope residual based and Antle moments production risk analysis"
 format: html
+fig-dpi: 300
+fig-width: 8.88
+fig-align: center
+fig-height: 5
+
 self-contained: true
 author: Maxwell Mkondiwa
 editor: visual
 toc: true
 toc-location: left
 number-sections: true
+execute: 
+  message: false
+  warning: false
+  echo: true
 ---
 
 # Introduction
@@ -196,9 +205,10 @@ stargazer(ols, fgls,ols_log_variance,
           keep.stat=c("n","rsq"))
 
 library(modelsummary)
-list_models = list(ols,fgls, ols_log_variance)
+list_models = list("Mean model:OLS"=ols,"Mean model: FGLS"=fgls, "Log Variance/Risk model"=ols_log_variance)
 
-modelplot(list_models)
+b <- list(geom_vline(xintercept = 0, color = 'orange'))
+modelplot(list_models,background = b,coef_omit = "Interc")
 
 modelsummary(list_models, stars=TRUE,output="tables/JP_results.docx")
 
@@ -231,9 +241,13 @@ stargazer(ols_mean, ols_variance,ols_skewness,ols_kurtosis,
           keep.stat=c("n","rsq"))
 
 library(modelsummary)
-list_models_moments = list(ols_mean, ols_variance,ols_skewness,ols_kurtosis)
+list_models_moments = list("Mean model"=ols_mean, "Variance model"=ols_variance,"Skewness model"=ols_skewness,"Kurtosis model"=ols_kurtosis)
 
 modelsummary(list_models_moments,stars=TRUE)
+
+b <- list(geom_vline(xintercept = 0, color = 'orange'))
+
+modelplot(list_models_moments,stars=TRUE, coef_omit = "Interc", background=b)
 
 modelsummary(list_models_moments, stars=TRUE,output="tables/Moments_results.docx")
 
