@@ -215,6 +215,77 @@ modelsummary(list_models, stars=TRUE,output="tables/JP_results.docx")
 
 ```
 
+## Contribution of sowing dates and varieties to yield and risk
+While the estimates shows the marginal effects of sowing dates or variety duration, one may be interest to know the contribution of these variables to the yield and yield risk. We use analysis of variance and shappley value regression. 
+### ANOVA
+```{r}
+anova(ols)
+anova(fgls)
+anova(ols_log_variance)
+
+```
+
+### Shapley value regression
+```{r}
+## Shapley value regression -----
+library(ShapleyValue)
+
+y <- CSISA_KVKestim$GrainYield
+x=subset(CSISA_KVKestim, select=c("SowingSchedule","VarietyClass_LDV","SeedRate","CropEstablishment","IrrigationNumber","SoilType","LandType","Year","District"))
+
+value <- shapleyvalue(y,x)
+
+library(kableExtra)
+value %>%
+  kbl() %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+
+shapleyvaluet=as.data.frame(t(value))
+shapleyvaluet=cbind(rownames(shapleyvaluet), data.frame(shapleyvaluet, row.names=NULL))
+names(shapleyvaluet)[1]="vars"
+
+library(ggplot2)
+shapleyvalueplot=ggplot(shapleyvaluet,aes(x=reorder(vars,Standardized.Shapley.Value),y=Standardized.Shapley.Value))+
+  geom_jitter(color="steelblue")+
+  coord_flip()+
+  labs(x="Variables",y="Standardized.Shapley.Value")
+previous_theme <- theme_set(theme_bw())
+shapleyvalueplot
+
+ggsave("figures/Mean_shapleyvalueplot.png",dpi=300)
+
+
+# Variance model
+y <- CSISA_KVKestim$log_ols_u_sqrd
+x=subset(CSISA_KVKestim, select=c("SowingSchedule","VarietyClass_LDV","SeedRate","CropEstablishment","IrrigationNumber","SoilType","LandType","Year","District"))
+
+value <- shapleyvalue(y,x)
+
+library(kableExtra)
+value %>%
+  kbl() %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+
+shapleyvaluet=as.data.frame(t(value))
+shapleyvaluet=cbind(rownames(shapleyvaluet), data.frame(shapleyvaluet, row.names=NULL))
+names(shapleyvaluet)[1]="vars"
+
+library(ggplot2)
+shapleyvalueplot=ggplot(shapleyvaluet,aes(x=reorder(vars,Standardized.Shapley.Value),y=Standardized.Shapley.Value))+
+  geom_jitter(color="steelblue")+
+  coord_flip()+
+  labs(x="Variables",y="Standardized.Shapley.Value")
+previous_theme <- theme_set(theme_bw())
+shapleyvalueplot
+
+ggsave("figures/Variance_shapleyvalueplot.png",dpi=300)
+```
+
+
+
+
 # Moment approach
 
 Antle (1983) extended the Just-Pope algorithm by including skewness as a measure of downside risk. The reason for the extension was the the Just-Pope approach considers variance as a measure of risk but variance doesnot distinguish unexpected bad events and good events. Skewness allows characterization of the unexpected downside effects.
@@ -253,6 +324,126 @@ modelsummary(list_models_moments, stars=TRUE,output="tables/Moments_results.docx
 
 ```
 
+## Contribution to moments
+
+### ANOVA
+```{r}
+anova(ols_mean)
+anova(ols_variance)
+anova(ols_skewness)
+anova(ols_kurtosis)
+
+```
+
+### Shapley value regression
+```{r}
+## Shapley value regression -----
+library(ShapleyValue)
+
+y <- CSISA_KVKestim$GrainYield
+x=subset(CSISA_KVKestim, select=c("SowingSchedule","VarietyClass_LDV","SeedRate","CropEstablishment","IrrigationNumber","SoilType","LandType","Year","District"))
+
+value <- shapleyvalue(y,x)
+
+library(kableExtra)
+value %>%
+  kbl() %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+
+shapleyvaluet=as.data.frame(t(value))
+shapleyvaluet=cbind(rownames(shapleyvaluet), data.frame(shapleyvaluet, row.names=NULL))
+names(shapleyvaluet)[1]="vars"
+
+library(ggplot2)
+shapleyvalueplot=ggplot(shapleyvaluet,aes(x=reorder(vars,Standardized.Shapley.Value),y=Standardized.Shapley.Value))+
+  geom_jitter(color="steelblue")+
+  coord_flip()+
+  labs(x="Variables",y="Standardized.Shapley.Value")
+previous_theme <- theme_set(theme_bw())
+shapleyvalueplot
+
+ggsave("figures/Mean_shapleyvalueplot.png",dpi=300)
+
+
+# Variance model
+y <- CSISA_KVKestim$ols_u^2
+x=subset(CSISA_KVKestim, select=c("SowingSchedule","VarietyClass_LDV","SeedRate","CropEstablishment","IrrigationNumber","SoilType","LandType","Year","District"))
+
+value <- shapleyvalue(y,x)
+
+library(kableExtra)
+value %>%
+  kbl() %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+
+shapleyvaluet=as.data.frame(t(value))
+shapleyvaluet=cbind(rownames(shapleyvaluet), data.frame(shapleyvaluet, row.names=NULL))
+names(shapleyvaluet)[1]="vars"
+
+library(ggplot2)
+shapleyvalueplot=ggplot(shapleyvaluet,aes(x=reorder(vars,Standardized.Shapley.Value),y=Standardized.Shapley.Value))+
+  geom_jitter(color="steelblue")+
+  coord_flip()+
+  labs(x="Variables",y="Standardized.Shapley.Value")
+previous_theme <- theme_set(theme_bw())
+shapleyvalueplot
+
+ggsave("figures/Variance_shapleyvalueplot.png",dpi=300)
+
+# Skewness model
+y <- CSISA_KVKestim$ols_u^3
+x=subset(CSISA_KVKestim, select=c("SowingSchedule","VarietyClass_LDV","SeedRate","CropEstablishment","IrrigationNumber","SoilType","LandType","Year","District"))
+
+value <- shapleyvalue(y,x)
+
+library(kableExtra)
+value %>%
+  kbl() %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+
+shapleyvaluet=as.data.frame(t(value))
+shapleyvaluet=cbind(rownames(shapleyvaluet), data.frame(shapleyvaluet, row.names=NULL))
+names(shapleyvaluet)[1]="vars"
+
+library(ggplot2)
+shapleyvalueplot=ggplot(shapleyvaluet,aes(x=reorder(vars,Standardized.Shapley.Value),y=Standardized.Shapley.Value))+
+  geom_jitter(color="steelblue")+
+  coord_flip()+
+  labs(x="Variables",y="Standardized.Shapley.Value")
+previous_theme <- theme_set(theme_bw())
+shapleyvalueplot
+
+ggsave("figures/Skewness_shapleyvalueplot.png",dpi=300)
+
+# Kurtosis model
+y <- CSISA_KVKestim$ols_u^4
+x=subset(CSISA_KVKestim, select=c("SowingSchedule","VarietyClass_LDV","SeedRate","CropEstablishment","IrrigationNumber","SoilType","LandType","Year","District"))
+
+value <- shapleyvalue(y,x)
+
+library(kableExtra)
+value %>%
+  kbl() %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+
+shapleyvaluet=as.data.frame(t(value))
+shapleyvaluet=cbind(rownames(shapleyvaluet), data.frame(shapleyvaluet, row.names=NULL))
+names(shapleyvaluet)[1]="vars"
+
+library(ggplot2)
+shapleyvalueplot=ggplot(shapleyvaluet,aes(x=reorder(vars,Standardized.Shapley.Value),y=Standardized.Shapley.Value))+
+  geom_jitter(color="steelblue")+
+  coord_flip()+
+  labs(x="Variables",y="Standardized.Shapley.Value")
+previous_theme <- theme_set(theme_bw())
+shapleyvalueplot
+
+ggsave("figures/Kurtosis_shapleyvalueplot.png",dpi=300)
+```
 # Addressing endogeneity using Lewbel (2012) method
 
 When using observational data, there may be endogeneity associated with the choice of the technology.
